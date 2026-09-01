@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>black cab</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    :root { --yellow: #ffe500; --black: #0b0b0b; }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body {
+      height: 100%;
+      background: var(--yellow);
+      color: var(--black);
+      font-family: Inter, system-ui, sans-serif;
+      overflow: hidden;
+    }
+    .noise {
+      pointer-events: none;
+      position: fixed; inset: 0; z-index: 6; opacity: .06;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+    }
+    header {
+      position: relative; z-index: 4;
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 20px 24px; font-size: 12px; font-weight: 600;
+      letter-spacing: .16em; text-transform: uppercase;
+    }
+    header a { color: inherit; text-decoration: none; }
+    .stage {
+      position: relative; z-index: 3;
+      height: calc(100vh - 62px);
+      display: grid; place-items: center;
+      perspective: 1200px;
+    }
+    .mark {
+      position: relative;
+      width: min(86vw, 920px);
+      transform-style: preserve-3d;
+      animation: enter 1.1s cubic-bezier(.16,1,.3,1) both;
+      cursor: pointer;
+      will-change: transform;
+    }
+    .mark img {
+      width: 100%; height: auto; display: block;
+      filter: drop-shadow(0 24px 50px rgba(0,0,0,.18));
+      animation: breathe 5.5s ease-in-out infinite;
+    }
+    @keyframes enter {
+      from { opacity: 0; transform: translateY(36px) scale(.92) rotateX(8deg); filter: blur(10px); }
+      to   { opacity: 1; transform: none; filter: none; }
+    }
+    @keyframes breathe {
+      0%,100% { transform: scale(1); }
+      50%     { transform: scale(1.025); }
+    }
+    .halo {
+      position: absolute; inset: -8%; z-index: -1;
+      background: radial-gradient(circle, rgba(255,255,255,.55), rgba(255,229,0,0) 68%);
+      animation: halo 6s ease-in-out infinite;
+      pointer-events: none;
+    }
+    @keyframes halo {
+      0%,100% { transform: scale(1); opacity: .7; }
+      50% { transform: scale(1.12); opacity: 1; }
+    }
+    .scan {
+      position: absolute; inset: 0; pointer-events: none;
+      background: linear-gradient(180deg, transparent 0%, rgba(255,255,255,.28) 50%, transparent 100%);
+      mix-blend-mode: overlay;
+      animation: scan 3.4s ease-in-out infinite;
+      opacity: .55;
+    }
+    @keyframes scan {
+      from { transform: translateY(-80%); }
+      to   { transform: translateY(80%); }
+    }
+    .hint {
+      position: fixed; bottom: 22px; width: 100%;
+      text-align: center; z-index: 4;
+      font-size: 11px; letter-spacing: .22em;
+      text-transform: uppercase; opacity: .5;
+    }
+    canvas#fx { position: fixed; inset: 0; z-index: 2; pointer-events: none; }
+  </style>
+</head>
+<body>
+  <div class="noise"></div>
+  <canvas id="fx"></canvas>
+  <header>
+    <span>black cab</span>
+    <a href="https://www.blackcab.com" target="_blank" rel="noopener">blackcab.com</a>
+  </header>
+  <main class="stage">
+    <div class="mark" id="mark">
+      <div class="halo"></div>
+      <img src="logo.png" alt="black cab" draggable="false" />
+      <div class="scan"></div>
+    </div>
+  </main>
+  <div class="hint">move · click</div>
+  <script>
+    const mark = document.getElementById('mark');
+    addEventListener('pointermove', (e) => {
+      const r = mark.getBoundingClientRect();
+      const x = (e.clientX - r.left) / r.width - .5;
+      const y = (e.clientY - r.top) / r.height - .5;
+      mark.style.transform = `rotateY(${x * 14}deg) rotateX(${-y * 10}deg)`;
+    });
+    addEventListener('pointerleave', () => { mark.style.transform = ''; });
+    mark.addEventListener('click', () => {
+      mark.animate(
+        [
+          { transform: mark.style.transform || 'none' },
+          { transform: (mark.style.transform || '') + ' scale(1.045)' },
+          { transform: mark.style.transform || 'none' }
+        ],
+        { duration: 420, easing: 'cubic-bezier(.2,.8,.2,1)' }
+      );
+    });
+    const c = document.getElementById('fx');
+    const ctx = c.getContext('2d');
+    let w, h, pts = [], dots = [];
+    function resize() { w = c.width = innerWidth; h = c.height = innerHeight; }
+    resize();
+    addEventListener('resize', resize);
+    for (let i = 0; i < 28; i++) {
+      dots.push({ x: Math.random()*innerWidth, y: Math.random()*innerHeight, r: 1.2+Math.random()*2.4, s: .15+Math.random()*.45, a: .08+Math.random()*.12 });
+    }
+    addEventListener('pointermove', (e) => {
+      pts.push({ x: e.clientX, y: e.clientY, life: 1 });
+      if (pts.length > 36) pts.shift();
+    });
+    function frame() {
+      ctx.clearRect(0,0,w,h);
+      dots.forEach(d => {
+        d.y -= d.s;
+        if (d.y < -8) { d.y = h + 8; d.x = Math.random() * w; }
+        ctx.fillStyle = `rgba(11,11,11,${d.a})`;
+        ctx.beginPath(); ctx.arc(d.x,d.y,d.r,0,Math.PI*2); ctx.fill();
+      });
+      ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+      for (let i = 1; i < pts.length; i++) {
+        const p = pts[i], q = pts[i-1];
+        p.life *= .95;
+        ctx.strokeStyle = `rgba(11,11,11,${p.life*.22})`;
+        ctx.lineWidth = 9 * p.life;
+        ctx.beginPath(); ctx.moveTo(q.x,q.y); ctx.lineTo(p.x,p.y); ctx.stroke();
+      }
+      pts = pts.filter(p => p.life > .04);
+      requestAnimationFrame(frame);
+    }
+    frame();
+  </script>
+</body>
+</html>
